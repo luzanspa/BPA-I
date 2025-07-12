@@ -466,6 +466,25 @@
                         <button class="btn btn-primary" onclick="openCitiesModal()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em;">
                             🏢 Gerenciar Cidades
                         </button>
+                        <button class="btn btn-secondary" onclick="generateReport()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em;">
+                            📋 Gerar Relatório
+                        </button>
+                        <br>
+                        <button class="btn btn-primary" onclick="previewExport()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em;">
+                            👁️ Visualizar Exportação
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportExcel()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em;">
+                            📊 Exportar Dados
+                        </button>
+                        <br>
+                        <input type="file" id="importDataFile" accept=".csv" style="display: none;">
+                        <button class="btn btn-primary" onclick="selectFileToImport()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em;">
+                            📁 Importar Dados
+                        </button>
+                        <br><br>
+                        <button class="btn btn-secondary" onclick="confirmClearData()" style="margin: 10px; padding: 20px 30px; font-size: 1.1em; background: #e74c3c; border-color: #c0392b;">
+                            🗑️ Limpar Todos os Dados
+                        </button>
                     </div>
                 </div>
             </div>
@@ -738,7 +757,7 @@
                 </fieldset>
 
                 <div style="text-align: center; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <button type="button" class="btn btn-primary" onclick="addManualRecord()" style="margin-right: 10px;">✅ Registrar Atendimento</button>
+                    <button type="button" id="submitBtn" class="btn btn-primary" onclick="addManualRecord()" style="margin-right: 10px;">✅ Salvar Cadastro</button>
                     <button type="button" class="btn btn-secondary" onclick="clearForm()">🔄 Limpar Formulário</button>
                 </div>
             </form>
@@ -746,20 +765,22 @@
 
         <div class="card">
             <h2>🔧 Operações</h2>
-            <div class="grid">
-                <div>
-                    <button class="btn btn-primary" onclick="toggleStatistics()">📊 Ver Estatísticas</button>
-                    <button class="btn btn-secondary" onclick="generateReport()">📋 Gerar Relatório</button>
-                </div>
-                <div>
-                    <button class="btn btn-secondary" onclick="exportExcel()">📊 Exportar Excel</button>
+            
+            <!-- VALIDAÇÃO E ANÁLISE -->
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: #27ae60; font-size: 1.1em; margin-bottom: 15px; border-left: 4px solid #27ae60; padding-left: 10px;">🔍 Validação e Análise</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     <button class="btn btn-primary" onclick="validateData()">✅ Validar Dados</button>
+                    <button class="btn btn-primary" onclick="toggleStatistics()">📊 Ver Estatísticas</button>
                 </div>
-                <div>
-                    <button class="btn btn-primary" onclick="clearData()">🗑️ Limpar Dados</button>
-                    <button class="btn btn-primary" onclick="previewExport()">👁️ Visualizar Exportação</button>
-                </div>
-                <div>
+            </div>
+            
+
+            
+            <!-- CONFIGURAÇÕES -->
+            <div>
+                <h3 style="color: #e67e22; font-size: 1.1em; margin-bottom: 15px; border-left: 4px solid #e67e22; padding-left: 10px;">⚙️ Administração</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     <button class="btn btn-secondary" onclick="openConfigModal()">⚙️ Configurações</button>
                 </div>
             </div>
@@ -771,6 +792,7 @@
                 <table id="dataTable">
                     <thead>
                         <tr>
+                            <th>Data Cadastro</th>
                             <th>Nome</th>
                             <th>CNS/CPF</th>
                             <th>Sexo</th>
@@ -803,7 +825,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="28" class="loading">Nenhum dado carregado</td>
+                            <td colspan="29" class="loading">Nenhum dado carregado</td>
                         </tr>
                     </tbody>
                 </table>
@@ -993,8 +1015,9 @@
                     record.status = 'error';
                 }
 
-                // Validar procedimento
-                if (record.procedimento.length !== 10 || !/^\d+$/.test(record.procedimento)) {
+                // Validar procedimento apenas se necessário
+                const needsProcedure = !['carona', 'particular', 'visita'].includes(record.tipoAtendimento);
+                if (needsProcedure && record.procedimento && (record.procedimento.length !== 10 || !/^\d+$/.test(record.procedimento))) {
                     record.errors.push('Código de procedimento inválido');
                     record.status = 'error';
                 }
@@ -1325,8 +1348,9 @@
                                   record.status === 'error' ? 'status-error' : 'status-warning';
                 
                 row.innerHTML = `
+                    <td style="font-size: 0.85em; color: #666;">${record.dtCadastro || 'N/A'}</td>
                     <td>${record.patientId || 'N/A'}</td>
-                    <td class="${record.errors.some(e => e.includes('CNS/CPF')) ? 'field-error' : ''}">${record.cnsPaciente || 'N/A'}</td>
+                    <td class="${record.errors.some(e => e.includes('CNS/CPF')) ? 'field-error' : ''}">${formatCNSForDisplay(record.cnsPaciente) || 'N/A'}</td>
                     <td class="${record.errors.some(e => e.includes('Sexo')) ? 'field-error' : ''}">${record.sexo === '1' ? 'M' : record.sexo === '2' ? 'F' : 'N/A'}</td>
                     <td class="${record.errors.some(e => e.includes('nascimento')) ? 'field-error' : ''}">${formatDate(record.dtNascimento)}</td>
                     <td>${getNacionalidadeDesc(record.nacionalidade)}</td>
@@ -1337,9 +1361,9 @@
                     <td>${record.numero || 'N/A'}</td>
                     <td>${record.bairro || 'N/A'}</td>
                     <td>${record.complemento || 'N/A'}</td>
-                    <td>${record.telefone || 'N/A'}</td>
+                    <td>${formatTelefoneForDisplay(record.telefone) || 'N/A'}</td>
                     <td class="${record.errors.some(e => e.includes('atendimento')) ? 'field-error' : ''}">${formatDate(record.dtAtendimento)}</td>
-                    <td class="${record.errors.some(e => e.includes('procedimento')) ? 'field-error' : ''}">${record.procedureId || record.procedimento || 'N/A'}</td>
+                    <td class="${record.errors.some(e => e.includes('procedimento')) ? 'field-error' : ''}">${record.procedimento || record.procedureId || 'N/A'}</td>
                     <td class="${record.errors.some(e => e.includes('Quantidade')) ? 'field-error' : ''}">${record.quantidade || 'N/A'}</td>
                     <td>${record.local || 'N/A'}</td>
                     <td>${record.cidade || 'N/A'}</td>
@@ -1370,7 +1394,7 @@
 
             if (bpaData.length > 100) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="28" class="loading">... e mais ${bpaData.length - 100} registros</td>`;
+                row.innerHTML = `<td colspan="29" class="loading">... e mais ${bpaData.length - 100} registros</td>`;
                 tbody.appendChild(row);
             }
         }
@@ -1500,51 +1524,84 @@ Relatório gerado em: ${report.timestamp}
             }
 
             const validData = bpaData.filter(r => r.status === 'valid');
-            const csvContent = generateExcelCSV(validData);
+            const csvContent = generateCompleteCSV(validData);
             
-            const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
-            downloadFile(`BPA-I_Dados_${timestamp}.csv`, csvContent);
-            addLog(`Dados exportados: ${validData.length} registros válidos em formato Excel`);
+            const now = new Date();
+            const timestamp = now.toISOString().slice(0,19).replace(/[-:T]/g, '').replace(/\..+/, '');
+            downloadFile(`BPA-I_Completo_${timestamp}.csv`, csvContent);
+            addLog(`Dados exportados: ${validData.length} registros válidos com todas as informações`);
         }
 
-        function generateExcelCSV(data) {
+        function generateCompleteCSV(data) {
             // Adicionar BOM para UTF-8 para compatibilidade com Excel
             const BOM = '\uFEFF';
             const headers = [
-                'IDENTIFICACAO_PACIENTE',
-                'CNS_PACIENTE',
-                'IDENTIFICACAO_PROCEDIMENTO', 
-                'CODIGO_PROCEDIMENTO',
-                'DATA_NASCIMENTO',
+                'DATA_CADASTRO',
+                'NOME_PACIENTE',
+                'CNS_CPF',
                 'SEXO',
+                'DATA_NASCIMENTO',
+                'NACIONALIDADE',
                 'RACA_COR',
-                'MUNICIPIO',
-                'CNES',
-                'CBO',
+                'ETNIA',
+                'LOGRADOURO',
+                'ENDERECO',
+                'NUMERO',
+                'BAIRRO_CORREGO',
+                'COMPLEMENTO',
+                'TELEFONE',
                 'DATA_ATENDIMENTO',
+                'CODIGO_PROCEDIMENTO',
                 'QUANTIDADE',
-                'CARACTERISTICA_ATENDIMENTO',
-                'ORIGEM'
+                'LOCAL_ATENDIMENTO',
+                'CIDADE',
+                'HORARIO',
+                'CLASSIFICACAO',
+                'CID',
+                'TIPO_ATENDIMENTO',
+                'TIPO_ATENDIMENTO_CODIGO',
+                'TRANSPORTE',
+                'QTD_ACOMPANHANTES',
+                'OBSERVACAO',
+                'STATUS',
+                'ARQUIVO_ORIGEM',
+                'LINHA_ORIGEM'
             ];
 
             let csv = BOM + headers.join(';') + '\n';
             
             data.forEach(record => {
                 const row = [
-                    record.patientId || '',
-                    record.cnsPaciente || '',
-                    record.procedureId || '',
-                    record.procedimento || '',
-                    formatDateForExport(record.dtNascimento),
+                    `"${record.dtCadastro || ''}"`,
+                    `"${record.patientId || ''}"`,
+                    `"${formatCNSForDisplay(record.cnsPaciente)}"`,
                     getSexoDescription(record.sexo),
-                    record.raca || '',
-                    record.municipio || '',
-                    record.cnes || '',
-                    record.cbo || '',
+                    formatDateForExport(record.dtNascimento),
+                    getNacionalidadeDesc(record.nacionalidade),
+                    getRacaDesc(record.raca),
+                    `"${record.etnia || ''}"`,
+                    getLogradouroDesc(record.codLogradouro),
+                    `"${record.endereco || ''}"`,
+                    `"${record.numero || ''}"`,
+                    `"${record.bairro || ''}"`,
+                    `"${record.complemento || ''}"`,
+                    `"${formatTelefoneForDisplay(record.telefone)}"`,
                     formatDateForExport(record.dtAtendimento),
+                    `"${record.procedimento || ''}"`,
                     record.quantidade || '',
-                    record.caraAtendimento || '',
-                    record.origem || ''
+                    `"${record.local || ''}"`,
+                    `"${record.cidade || ''}"`,
+                    `"${record.horario || ''}"`,
+                    `"${record.class || ''}"`,
+                    `"${record.cid || ''}"`,
+                    getTransporteDesc(record.tipoAtendimento),
+                    `"${record.tipoAtendimentoCodigo || ''}"`,
+                    getTransporteDesc(record.transporte),
+                    record.qtdAcompanhantes || '0',
+                    `"${record.observacao || ''}"`,
+                    record.status || 'pending',
+                    `"${record.filename || ''}"`,
+                    record.lineNumber || ''
                 ];
                 csv += row.join(';') + '\n';
             });
@@ -1567,66 +1624,57 @@ Relatório gerado em: ${report.timestamp}
             previewHeader.innerHTML = '';
             previewBody.innerHTML = '';
 
-            // Criar cabeçalho
+            // Criar cabeçalho com todas as colunas
             const headerRow = document.createElement('tr');
             const headers = [
-                'IDENTIFICACAO_PACIENTE',
-                'CNS_PACIENTE',
-                'IDENTIFICACAO_PROCEDIMENTO', 
-                'CODIGO_PROCEDIMENTO',
-                'DATA_NASCIMENTO',
-                'SEXO',
-                'RACA_COR',
-                'MUNICIPIO',
-                'CNES',
-                'CBO',
-                'DATA_ATENDIMENTO',
-                'QUANTIDADE',
-                'CARACTERISTICA_ATENDIMENTO',
-                'ORIGEM'
+                'DATA_CADASTRO', 'NOME_PACIENTE', 'CNS_CPF', 'SEXO', 'DATA_NASCIMENTO', 'NACIONALIDADE',
+                'RACA_COR', 'ETNIA', 'LOGRADOURO', 'ENDERECO', 'NUMERO', 'BAIRRO_CORREGO',
+                'COMPLEMENTO', 'TELEFONE', 'DATA_ATENDIMENTO', 'CODIGO_PROCEDIMENTO',
+                'QUANTIDADE', 'LOCAL_ATENDIMENTO', 'CIDADE', 'HORARIO', 'CLASSIFICACAO',
+                'CID', 'TIPO_ATENDIMENTO', 'TRANSPORTE', 'QTD_ACOMPANHANTES', 'OBSERVACAO'
             ];
 
             headers.forEach(header => {
                 const th = document.createElement('th');
                 th.textContent = header;
+                th.style.minWidth = '120px';
                 headerRow.appendChild(th);
             });
             previewHeader.appendChild(headerRow);
 
-            // Mostrar apenas os primeiros 10 registros para preview
-            const previewData = validData.slice(0, 10);
+            // Mostrar apenas os primeiros 5 registros para preview (muitas colunas)
+            const previewData = validData.slice(0, 5);
             previewData.forEach(record => {
                 const row = document.createElement('tr');
                 const values = [
-                    record.patientId || '',
-                    record.cnsPaciente || '',
-                    record.procedureId || '',
-                    record.procedimento || '',
-                    formatDateForExport(record.dtNascimento),
-                    getSexoDescription(record.sexo),
-                    record.raca || '',
-                    record.municipio || '',
-                    record.cnes || '',
-                    record.cbo || '',
-                    formatDateForExport(record.dtAtendimento),
-                    record.quantidade || '',
-                    record.caraAtendimento || '',
-                    record.origem || ''
+                    record.dtCadastro || '', record.patientId || '', formatCNSForDisplay(record.cnsPaciente), getSexoDescription(record.sexo),
+                    formatDateForExport(record.dtNascimento), getNacionalidadeDesc(record.nacionalidade),
+                    getRacaDesc(record.raca), record.etnia || '', getLogradouroDesc(record.codLogradouro),
+                    record.endereco || '', record.numero || '', record.bairro || '',
+                    record.complemento || '', formatTelefoneForDisplay(record.telefone), formatDateForExport(record.dtAtendimento),
+                    record.procedimento || '', record.quantidade || '', record.local || '',
+                    record.cidade || '', record.horario || '', record.class || '',
+                    record.cid || '', getTransporteDesc(record.tipoAtendimento),
+                    getTransporteDesc(record.transporte), record.qtdAcompanhantes || '0', record.observacao || ''
                 ];
 
                 values.forEach(value => {
                     const td = document.createElement('td');
                     td.textContent = value;
+                    td.style.maxWidth = '150px';
+                    td.style.overflow = 'hidden';
+                    td.style.textOverflow = 'ellipsis';
+                    td.style.whiteSpace = 'nowrap';
                     row.appendChild(td);
                 });
                 previewBody.appendChild(row);
             });
 
-            if (validData.length > 10) {
+            if (validData.length > 5) {
                 const row = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = headers.length;
-                td.textContent = `... e mais ${validData.length - 10} registros`;
+                td.textContent = `... e mais ${validData.length - 5} registros`;
                 td.style.textAlign = 'center';
                 td.style.fontStyle = 'italic';
                 td.style.color = '#666';
@@ -1636,7 +1684,7 @@ Relatório gerado em: ${report.timestamp}
 
             previewDiv.classList.remove('hidden');
             previewDiv.scrollIntoView({ behavior: 'smooth' });
-            addLog(`Preview gerado para ${validData.length} registros válidos`);
+            addLog(`Preview gerado para ${validData.length} registros válidos com todas as colunas`);
         }
 
         function closePreview() {
@@ -1696,11 +1744,7 @@ Relatório gerado em: ${report.timestamp}
                 editingIndex = parseInt(storedEditingIndex);
                 if (editingIndex >= 0 && editingIndex < bpaData.length) {
                     // Restaurar estado de edição
-                    const submitBtn = document.querySelector('button[onclick="addManualRecord()"]');
-                    if (submitBtn) {
-                        submitBtn.textContent = '✅ Salvar Alterações';
-                        submitBtn.onclick = updateRecord;
-                    }
+                    updateSubmitButton(true);
                     addLog(`Estado de edição restaurado para registro ${editingIndex + 1}`);
                 }
             }
@@ -1950,6 +1994,34 @@ Relatório gerado em: ${report.timestamp}
             document.getElementById('cityProcedures').value = '';
         }
 
+        function createBackup(action) {
+            const timestamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g, '');
+            const backupData = {
+                timestamp: new Date().toLocaleString('pt-BR'),
+                action: action,
+                totalRecords: bpaData.length,
+                data: JSON.parse(JSON.stringify(bpaData))
+            };
+            
+            const backupContent = JSON.stringify(backupData, null, 2);
+            const filename = `BPA-I_Backup_${action}_${timestamp}.json`;
+            
+            // Salvar backup no localStorage também
+            const backupKey = `bpa_backup_${timestamp}`;
+            localStorage.setItem(backupKey, backupContent);
+            
+            // Manter apenas os últimos 10 backups
+            const allKeys = Object.keys(localStorage).filter(key => key.startsWith('bpa_backup_'));
+            if (allKeys.length > 10) {
+                allKeys.sort();
+                for (let i = 0; i < allKeys.length - 10; i++) {
+                    localStorage.removeItem(allKeys[i]);
+                }
+            }
+            
+            addLog(`Backup automático criado: ${filename}`);
+        }
+        
         function addManualRecord() {
             // Campos de identificação do paciente
             const cnsPacienteRaw = document.getElementById('patientCNS').value.trim();
@@ -2075,6 +2147,30 @@ Relatório gerado em: ${report.timestamp}
                 alert('Por favor, confirme a quantidade de acompanhantes');
                 return;
             }
+            // Validar campos obrigatórios para Paciente e Acompanhante
+            const needsProcedureFields = !['carona', 'particular', 'visita'].includes(tipoAtendimento);
+            if (needsProcedureFields) {
+                if (!procedimento.trim()) {
+                    alert('Por favor, preencha o código do procedimento (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!quantity || quantity < 1) {
+                    alert('Por favor, preencha a quantidade (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!local.trim()) {
+                    alert('Por favor, preencha o local do atendimento (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!classField.trim()) {
+                    alert('Por favor, preencha a classificação (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!cid.trim()) {
+                    alert('Por favor, preencha o código CID (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+            }
 
             
             // Validar CNS ou CPF
@@ -2108,6 +2204,7 @@ Relatório gerado em: ${report.timestamp}
                 complemento: complemento,
                 bairro: bairro,
                 telefone: telefone.replace(/\D/g, ''),
+                dtCadastro: new Date().toLocaleString('pt-BR'),
                 cnes: '0000000',
                 cbo: '000000',
                 dtAtendimento: dtAtendimento,
@@ -2130,6 +2227,9 @@ Relatório gerado em: ${report.timestamp}
                 errors: []
             };
 
+            // Criar backup antes de adicionar
+            createBackup('NOVO_CADASTRO');
+            
             bpaData.push(record);
             saveDataToStorage();
             updateStatistics();
@@ -2152,6 +2252,20 @@ Relatório gerado em: ${report.timestamp}
             document.getElementById('cid').parentElement.style.display = 'block';
             // Resetar validação de acompanhantes
             validarAcompanhantes();
+            
+            // Resetar botão para modo de cadastro
+            updateSubmitButton(false);
+        }
+        
+        function updateSubmitButton(isEditing) {
+            const submitBtn = document.getElementById('submitBtn');
+            if (isEditing) {
+                submitBtn.textContent = '✅ Salvar Alterações';
+                submitBtn.onclick = updateRecord;
+            } else {
+                submitBtn.textContent = '✅ Salvar Cadastro';
+                submitBtn.onclick = addManualRecord;
+            }
         }
 
         function downloadFile(filename, content) {
@@ -2166,27 +2280,52 @@ Relatório gerado em: ${report.timestamp}
             URL.revokeObjectURL(url);
         }
 
-        function clearData() {
-            if (confirm('Tem certeza que deseja limpar todos os dados?')) {
-                bpaData = [];
-                validationLog = [];
-                editingIndex = -1;
-                localStorage.removeItem('bpa_data');
-                localStorage.removeItem('bpa_logs');
-                localStorage.removeItem('editing_index');
-                updateStatistics();
-                displayData();
-                document.getElementById('fileInput').value = '';
-                document.getElementById('fileInfo').classList.add('hidden');
-                document.getElementById('logArea').value = '';
-                // Resetar botão
-                const submitBtn = document.querySelector('button');
-                if (submitBtn) {
-                    submitBtn.textContent = '✅ Registrar Atendimento';
-                    submitBtn.onclick = addManualRecord;
-                }
-                addLog('Dados limpos');
+        function confirmClearData() {
+            // Primeira confirmação
+            if (!confirm('⚠️ ATENÇÃO: Esta ação irá apagar TODOS os dados do sistema!\n\nIsso inclui:\n• Todos os registros de pacientes\n• Histórico de validações\n• Estados de edição\n\nTem certeza que deseja continuar?')) {
+                return;
             }
+            
+            // Segunda confirmação
+            if (!confirm('🚨 CONFIRMAÇÃO FINAL: Todos os dados serão PERMANENTEMENTE perdidos!\n\nEsta ação NÃO PODE ser desfeita.\n\nDeseja realmente prosseguir com a exclusão?')) {
+                return;
+            }
+            
+            // Terceira confirmação com digitação
+            const confirmText = prompt('Para confirmar a exclusão, digite exatamente:\nEXCLUIR TUDO\n\n(Digite o texto acima para confirmar):');
+            
+            if (confirmText !== 'EXCLUIR TUDO') {
+                alert('Operação cancelada. Texto de confirmação incorreto.');
+                return;
+            }
+            
+            // Executar limpeza
+            clearData();
+        }
+        
+        function clearData() {
+            bpaData = [];
+            validationLog = [];
+            editingIndex = -1;
+            localStorage.removeItem('bpa_data');
+            localStorage.removeItem('bpa_logs');
+            localStorage.removeItem('editing_index');
+            updateStatistics();
+            displayData();
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('logArea').value = '';
+            // Resetar botão
+            const submitBtn = document.querySelector('button');
+            if (submitBtn) {
+                submitBtn.textContent = '✅ Registrar Atendimento';
+                submitBtn.onclick = addManualRecord;
+            }
+            addLog('🗑️ TODOS OS DADOS FORAM LIMPOS DO SISTEMA');
+            alert('✅ Todos os dados foram removidos com sucesso!');
+            
+            // Fechar modal de configurações
+            closeConfigModal();
         }
 
         function addLog(message) {
@@ -2304,10 +2443,8 @@ Relatório gerado em: ${report.timestamp}
             handleLogradouroChange({ target: { value: record.codLogradouro } });
             handleRacaChange({ target: { value: record.raca } });
             
-            // Alterar texto do botão
-            const submitBtn = document.querySelector('button[onclick="addManualRecord()"]');
-            submitBtn.textContent = '✅ Salvar Alterações';
-            submitBtn.onclick = updateRecord;
+            // Alterar botão para modo de edição
+            updateSubmitButton(true);
             
             // Scroll para o formulário
             document.getElementById('manualForm').scrollIntoView({ behavior: 'smooth' });
@@ -2429,6 +2566,30 @@ Relatório gerado em: ${report.timestamp}
                 alert('Por favor, confirme a quantidade de acompanhantes');
                 return;
             }
+            // Validar campos obrigatórios para Paciente e Acompanhante
+            const needsProcedureFields = !['carona', 'particular', 'visita'].includes(tipoAtendimento);
+            if (needsProcedureFields) {
+                if (!procedimento.trim()) {
+                    alert('Por favor, preencha o código do procedimento (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!quantity || quantity < 1) {
+                    alert('Por favor, preencha a quantidade (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!local.trim()) {
+                    alert('Por favor, preencha o local do atendimento (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!classField.trim()) {
+                    alert('Por favor, preencha a classificação (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+                if (!cid.trim()) {
+                    alert('Por favor, preencha o código CID (obrigatório para este tipo de atendimento)');
+                    return;
+                }
+            }
             
             // Validar CNS ou CPF
             const cnsPacienteClean = cnsPacienteRaw.replace(/\D/g, '');
@@ -2473,15 +2634,15 @@ Relatório gerado em: ${report.timestamp}
                 observacao: observacao
             };
             
+            // Criar backup antes de salvar alterações
+            createBackup('EDICAO_SALVA');
+            
             // Resetar edição
             editingIndex = -1;
             localStorage.setItem('editing_index', '-1');
             
-            const submitBtn = document.querySelector('button[onclick="updateRecord()"]');
-            if (submitBtn) {
-                submitBtn.textContent = '✅ Registrar Atendimento';
-                submitBtn.onclick = addManualRecord;
-            }
+            // Resetar botão para modo de cadastro
+            updateSubmitButton(false);
             
             saveDataToStorage();
             updateStatistics();
@@ -2493,6 +2654,9 @@ Relatório gerado em: ${report.timestamp}
         function deleteRecord(index) {
             const record = bpaData[index];
             if (confirm(`Tem certeza que deseja excluir o registro de ${record.patientId}?`)) {
+                // Criar backup antes de excluir
+                createBackup('EXCLUSAO');
+                
                 bpaData.splice(index, 1);
                 saveDataToStorage();
                 updateStatistics();
@@ -2515,6 +2679,301 @@ Relatório gerado em: ${report.timestamp}
         function formatDateForInput(dateStr) {
             if (!dateStr || dateStr.length !== 8) return '';
             return `${dateStr.substring(4,8)}-${dateStr.substring(2,4)}-${dateStr.substring(0,2)}`;
+        }
+        
+        function formatTelefoneForDisplay(telefone) {
+            if (!telefone) return '';
+            const clean = telefone.replace(/\D/g, '');
+            if (clean.length === 10) {
+                return clean.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+            } else if (clean.length === 11) {
+                return clean.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+            }
+            return clean;
+        }
+        
+        function selectFileToImport() {
+            const fileInput = document.getElementById('importDataFile');
+            fileInput.value = ''; // Limpar seleção anterior
+            
+            // Configurar evento para quando arquivo for selecionado
+            fileInput.onchange = function() {
+                if (this.files && this.files[0]) {
+                    const selectedFile = this.files[0];
+                    addLog(`Arquivo selecionado: ${selectedFile.name} (${(selectedFile.size/1024).toFixed(2)} KB)`);
+                    
+                    // Agora fazer a validação tripla
+                    confirmImportData(selectedFile);
+                }
+            };
+            
+            // Abrir seletor de arquivo
+            fileInput.click();
+        }
+        
+        function confirmImportData(selectedFile) {
+            // Primeira confirmação
+            if (!confirm(`⚠️ ATENÇÃO: Você selecionou o arquivo "${selectedFile.name}"\n\nEsta ação irá ADICIONAR novos dados ao sistema!\n\nIsso pode:\n• Duplicar registros existentes\n• Misturar dados de diferentes fontes\n• Afetar relatórios e estatísticas\n\nTem certeza que deseja continuar?`)) {
+                document.getElementById('importDataFile').value = ''; // Limpar seleção
+                addLog('Importação cancelada pelo usuário na 1ª confirmação');
+                return;
+            }
+            
+            // Segunda confirmação
+            if (!confirm('🚨 CONFIRMAÇÃO FINAL: Os dados importados serão ADICIONADOS aos existentes!\n\nRecomenda-se fazer backup antes da importação.\n\nDeseja realmente prosseguir com a importação?')) {
+                document.getElementById('importDataFile').value = ''; // Limpar seleção
+                addLog('Importação cancelada pelo usuário na 2ª confirmação');
+                return;
+            }
+            
+            // Terceira confirmação com digitação
+            const confirmText = prompt('Para confirmar a importação, digite exatamente:\nIMPORTAR DADOS\n\n(Digite o texto acima para confirmar):');
+            
+            if (confirmText !== 'IMPORTAR DADOS') {
+                document.getElementById('importDataFile').value = ''; // Limpar seleção
+                addLog('Importação cancelada: texto de confirmação incorreto');
+                alert('Operação cancelada. Texto de confirmação incorreto.');
+                return;
+            }
+            
+            // Todas as confirmações passaram - processar arquivo
+            addLog('Todas as confirmações aprovadas. Iniciando importação...');
+            importData();
+        }
+        
+        function importData() {
+            const file = document.getElementById('importDataFile').files[0];
+            if (!file) {
+                alert('Nenhum arquivo selecionado');
+                addLog('ERRO: Nenhum arquivo selecionado');
+                return;
+            }
+            
+            addLog(`=== INICIANDO IMPORTAÇÃO ===`);
+            addLog(`Arquivo: ${file.name} (${(file.size/1024).toFixed(2)} KB)`);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const lines = content.split('\n').filter(line => line.trim());
+                    
+                    addLog(`Linhas no arquivo: ${lines.length}`);
+                    
+                    if (lines.length === 0) {
+                        alert('Arquivo vazio');
+                        return;
+                    }
+                    
+                    // Detectar cabeçalho
+                    const firstLine = lines[0].toLowerCase();
+                    const hasHeader = firstLine.includes('data_cadastro') || firstLine.includes('nome_paciente');
+                    const startIndex = hasHeader ? 1 : 0;
+                    
+                    addLog(`Cabeçalho: ${hasHeader ? 'Detectado' : 'Não detectado'}`);
+                    addLog(`Processando ${lines.length - startIndex} linhas de dados...`);
+                    
+                    const totalBefore = bpaData.length;
+                    let importedCount = 0;
+                    let errorCount = 0;
+                    
+                    // Processar cada linha
+                    for (let i = startIndex; i < lines.length; i++) {
+                        const columns = lines[i].split(';');
+                        
+                        if (columns.length >= 3) {
+                            try {
+                                // DEBUG COMPLETO - Mostrar todas as colunas da primeira linha
+                                if (importedCount === 0) {
+                                    addLog(`=== DEBUG COMPLETO DAS COLUNAS ===`);
+                                    for (let col = 0; col < Math.min(columns.length, 30); col++) {
+                                        const value = columns[col]?.replace(/"/g, '').trim() || '';
+                                        addLog(`Col ${col}: "${value}"`);
+                                    }
+                                    addLog(`=== FIM DEBUG ===`);
+                                }
+                                
+                                // MAPEAMENTO EXATO BASEADO NA EXPORTAÇÃO:
+                                // 0=DATA_CADASTRO, 1=NOME_PACIENTE, 2=CNS_CPF, 3=SEXO, 4=DATA_NASCIMENTO,
+                                // 5=NACIONALIDADE, 6=RACA_COR, 7=ETNIA, 8=LOGRADOURO, 9=ENDERECO,
+                                // 10=NUMERO, 11=BAIRRO_CORREGO, 12=COMPLEMENTO, 13=TELEFONE, 14=DATA_ATENDIMENTO,
+                                // 15=CODIGO_PROCEDIMENTO, 16=QUANTIDADE, 17=LOCAL_ATENDIMENTO, 18=CIDADE, 19=HORARIO,
+                                // 20=CLASSIFICACAO, 21=CID, 22=TIPO_ATENDIMENTO, 23=TIPO_ATENDIMENTO_CODIGO,
+                                // 24=TRANSPORTE, 25=QTD_ACOMPANHANTES, 26=OBSERVACAO
+                                
+                                const record = {
+                                    filename: 'imported_data',
+                                    lineNumber: importedCount + 1,
+                                    originalLine: 'IMPORTED',
+                                    dtCadastro: columns[0]?.replace(/"/g, '').trim() || new Date().toLocaleString('pt-BR'),
+                                    patientId: columns[1]?.replace(/"/g, '').trim() || `Importado_${importedCount + 1}`,
+                                    cnsPaciente: columns[2]?.replace(/"/g, '').replace(/[^\d]/g, '') || '00000000000',
+                                    sexo: columns[3]?.toLowerCase().includes('masculino') ? '1' : '2',
+                                    dtNascimento: convertDateToInternal(columns[4]?.replace(/"/g, '').trim()) || '01011990',
+                                    nacionalidade: columns[5]?.includes('Brasileira') ? '010' : '010',
+                                    raca: getRacaCodeFromText(columns[6]?.replace(/"/g, '').trim()) || '03',
+                                    etnia: columns[7]?.replace(/"/g, '').trim() || '',
+                                    codLogradouro: columns[8]?.includes('Urbana') ? '081' : '081',
+                                    endereco: columns[9]?.replace(/"/g, '').trim() || 'Endereço Importado',
+                                    numero: columns[10]?.replace(/"/g, '').trim() || '123',
+                                    bairro: columns[11]?.replace(/"/g, '').trim() || 'Bairro Importado',
+                                    complemento: columns[12]?.replace(/"/g, '').trim() || '',
+                                    telefone: columns[13]?.replace(/[^\d]/g, '') || '00000000000',
+                                    dtAtendimento: convertDateToInternal(columns[14]?.replace(/"/g, '').trim()) || new Date().toISOString().slice(0,10).split('-').reverse().join(''),
+                                    procedimento: columns[15]?.replace(/"/g, '').trim() || '0301010010',
+                                    procedureId: columns[15]?.replace(/"/g, '').trim() || '0301010010',
+                                    quantidade: columns[16]?.replace(/"/g, '').trim() || '01',
+                                    local: columns[17]?.replace(/"/g, '').trim() || 'Local Importado',
+                                    cidade: columns[18]?.replace(/"/g, '').trim() || 'Cidade Importada',
+                                    horario: columns[19]?.replace(/"/g, '').trim() || '08:00',
+                                    class: columns[20]?.replace(/"/g, '').trim() || '',
+                                    cid: columns[21]?.replace(/"/g, '').trim() || '',
+                                    tipoAtendimento: getTipoAtendimentoFromText(columns[22]?.replace(/"/g, '').trim()) || 'paciente',
+                                    tipoAtendimentoCodigo: columns[23]?.replace(/"/g, '').trim() || '',
+                                    transporte: getTransporteFromText(columns[24]?.replace(/"/g, '').trim()) || 'proprio',
+                                    qtdAcompanhantes: columns[25]?.replace(/"/g, '').trim() || '0',
+                                    temAcompanhante: (columns[25]?.replace(/"/g, '').trim() || '0') !== '0',
+                                    observacao: columns[26]?.replace(/"/g, '').trim() || `Importado de ${file.name}`,
+                                    status: 'imported',
+                                    errors: [],
+                                    tipoDado: '03',
+                                    municipio: '999999',
+                                    cnes: '0000000',
+                                    cbo: '000000',
+                                    caraAtendimento: '01',
+                                    origem: '1'
+                                };
+                                
+                                bpaData.push(record);
+                                importedCount++;
+                                
+                            } catch (error) {
+                                errorCount++;
+                                addLog(`Erro linha ${i + 1}: ${error.message}`);
+                            }
+                        } else {
+                            errorCount++;
+                        }
+                    }
+                    
+                    // Criar backup antes de importar
+                    if (importedCount > 0) {
+                        createBackup('IMPORTACAO');
+                    }
+                    
+                    // Salvar e atualizar
+                    saveDataToStorage();
+                    updateStatistics();
+                    displayData();
+                    
+                    const totalAfter = bpaData.length;
+                    
+                    // Resultado final
+                    let message = `✅ IMPORTAÇÃO REALIZADA!\n\n`;
+                    message += `Arquivo: ${file.name}\n`;
+                    message += `Registros importados: ${importedCount}\n`;
+                    if (errorCount > 0) message += `Erros: ${errorCount}\n`;
+                    message += `Total no sistema: ${totalAfter}`;
+                    
+                    addLog(`=== RESULTADO ===`);
+                    addLog(`Importados: ${importedCount}`);
+                    addLog(`Erros: ${errorCount}`);
+                    addLog(`Total no sistema: ${totalAfter}`);
+                    
+                    alert(message);
+                    
+                    // Limpar e fechar
+                    document.getElementById('importDataFile').value = '';
+                    closeConfigModal();
+                    
+                } catch (error) {
+                    alert(`Erro: ${error.message}`);
+                    addLog(`ERRO CRÍTICO: ${error.message}`);
+                }
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+        
+        function convertDateToInternal(dateStr) {
+            if (!dateStr) return null;
+            
+            // Remover espaços e caracteres especiais
+            const cleanStr = dateStr.trim();
+            
+            // Se já está no formato DDMMAAAA (8 dígitos), retornar como está
+            if (/^\d{8}$/.test(cleanStr)) {
+                return cleanStr;
+            }
+            
+            // Tentar diferentes formatos de data
+            let match;
+            
+            // Formato DD/MM/AAAA ou D/M/AAAA
+            match = cleanStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (match) {
+                const day = match[1].padStart(2, '0');
+                const month = match[2].padStart(2, '0');
+                const year = match[3];
+                return day + month + year;
+            }
+            
+            // Formato DD-MM-AAAA
+            match = cleanStr.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
+            if (match) {
+                const day = match[1].padStart(2, '0');
+                const month = match[2].padStart(2, '0');
+                const year = match[3];
+                return day + month + year;
+            }
+            
+            // Formato AAAA-MM-DD (ISO)
+            match = cleanStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (match) {
+                const year = match[1];
+                const month = match[2].padStart(2, '0');
+                const day = match[3].padStart(2, '0');
+                return day + month + year;
+            }
+            
+            // Se nenhum formato funcionou, tentar extrair apenas números
+            const numbersOnly = cleanStr.replace(/[^\d]/g, '');
+            if (numbersOnly.length === 8) {
+                return numbersOnly;
+            }
+            
+            // Log para debug
+            addLog(`AVISO: Não foi possível converter a data: "${dateStr}"`);
+            return null;
+        }
+        
+        function getRacaCodeFromText(raca) {
+            if (!raca) return '03';
+            const r = raca.toLowerCase();
+            if (r.includes('branca')) return '01';
+            if (r.includes('preta')) return '02';
+            if (r.includes('parda')) return '03';
+            if (r.includes('amarela')) return '04';
+            if (r.includes('indígena')) return '05';
+            return '99';
+        }
+        
+        function getTipoAtendimentoFromText(tipo) {
+            if (!tipo) return 'paciente';
+            const t = tipo.toLowerCase();
+            if (t.includes('acompanhante')) return 'acompanhante';
+            if (t.includes('carona')) return 'carona';
+            if (t.includes('particular')) return 'particular';
+            if (t.includes('visita')) return 'visita';
+            return 'paciente';
+        }
+        
+        function getTransporteFromText(transporte) {
+            if (!transporte) return 'proprio';
+            const t = transporte.toLowerCase();
+            if (t.includes('cisverde') || t.includes('ônibus')) return 'cisverde';
+            if (t.includes('carros') || t.includes('saúde')) return 'carros_saude';
+            return 'proprio';
         }
         
         // Inicialização
