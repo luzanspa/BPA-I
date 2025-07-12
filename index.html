@@ -692,6 +692,29 @@
                 <!-- TRANSPORTE -->
                 <fieldset style="border: 2px solid #e67e22; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
                     <legend style="color: #e67e22; font-weight: bold; padding: 0 10px;">TRANSPORTE</legend>
+                    
+                    <!-- Informações sobre acompanhantes -->
+                    <div style="margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label for="qtdAcompanhantes">Acompanhantes:</label>
+                            <select id="qtdAcompanhantes" onchange="validarAcompanhantes()" style="width: 200px;">
+                                <option value="0">Paciente sozinho</option>
+                                <option value="1">1 acompanhante</option>
+                                <option value="2">2 acompanhantes</option>
+                                <option value="3">3 acompanhantes</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Campo de confirmação (aparece apenas quando tem acompanhantes) -->
+                        <div id="confirmaAcompanhantes" style="display: none; margin-top: 15px; padding: 15px; background: #e8f4fd; border: 1px solid #0066cc; border-radius: 5px;">
+                            <label style="display: flex; align-items: center; font-weight: normal;">
+                                <input type="checkbox" id="confirmaQtd" style="margin-right: 10px; transform: scale(1.2);">
+                                <span id="textoConfirmacao">Confirmo que são exatamente X acompanhante(s)</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Botões de tipo de transporte -->
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                         <button type="button" class="transport-btn" data-value="cisverde" onclick="selectTransport(this)">
                             Ônibus CISVERDE
@@ -702,6 +725,15 @@
                         <button type="button" class="transport-btn" data-value="proprio" onclick="selectTransport(this)">
                             Transporte próprio
                         </button>
+                    </div>
+                </fieldset>
+
+                <!-- OBSERVAÇÃO -->
+                <fieldset style="border: 2px solid #9b59b6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <legend style="color: #9b59b6; font-weight: bold; padding: 0 10px;">OBSERVAÇÃO</legend>
+                    <div class="form-group">
+                        <label for="observacao">Observação:</label>
+                        <textarea id="observacao" placeholder="Observações gerais (opcional)" maxlength="300" rows="3"></textarea>
                     </div>
                 </fieldset>
 
@@ -763,13 +795,15 @@
                             <th>Tipo Atend.</th>
                             <th>Tipo Atend. Cód.</th>
                             <th>Transporte</th>
+                            <th>Acompanhantes</th>
+                            <th>Observação</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="26" class="loading">Nenhum dado carregado</td>
+                            <td colspan="28" class="loading">Nenhum dado carregado</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1281,7 +1315,7 @@
             tbody.innerHTML = '';
 
             if (bpaData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="23" class="loading">Nenhum dado carregado</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="28" class="loading">Nenhum dado carregado</td></tr>';
                 return;
             }
 
@@ -1315,6 +1349,8 @@
                     <td>${getTransporteDesc(record.tipoAtendimento)}</td>
                     <td>${record.tipoAtendimentoCodigo || 'N/A'}</td>
                     <td>${getTransporteDesc(record.transporte)}</td>
+                    <td>${record.temAcompanhante ? record.qtdAcompanhantes + ' acomp.' : 'Sem acomp.'}</td>
+                    <td>${record.observacao || 'N/A'}</td>
                     <td>
                         <span class="status-indicator ${statusClass}">${record.status}</span>
                         ${record.errors.length > 0 ? `<div class="error-details" title="${record.errors.join(', ')}">⚠️</div>` : ''}
@@ -1334,7 +1370,7 @@
 
             if (bpaData.length > 100) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="26" class="loading">... e mais ${bpaData.length - 100} registros</td>`;
+                row.innerHTML = `<td colspan="28" class="loading">... e mais ${bpaData.length - 100} registros</td>`;
                 tbody.appendChild(row);
             }
         }
@@ -1636,11 +1672,13 @@ Relatório gerado em: ${report.timestamp}
         function saveDataToStorage() {
             localStorage.setItem('bpa_data', JSON.stringify(bpaData));
             localStorage.setItem('bpa_logs', JSON.stringify(validationLog));
+            localStorage.setItem('editing_index', editingIndex.toString());
         }
         
         function loadDataFromStorage() {
             const storedData = localStorage.getItem('bpa_data');
             const storedLogs = localStorage.getItem('bpa_logs');
+            const storedEditingIndex = localStorage.getItem('editing_index');
             
             if (storedData) {
                 bpaData = JSON.parse(storedData);
@@ -1652,6 +1690,19 @@ Relatório gerado em: ${report.timestamp}
                 validationLog = JSON.parse(storedLogs);
                 const logArea = document.getElementById('logArea');
                 logArea.value = validationLog.join('\n');
+            }
+            
+            if (storedEditingIndex && storedEditingIndex !== '-1') {
+                editingIndex = parseInt(storedEditingIndex);
+                if (editingIndex >= 0 && editingIndex < bpaData.length) {
+                    // Restaurar estado de edição
+                    const submitBtn = document.querySelector('button[onclick="addManualRecord()"]');
+                    if (submitBtn) {
+                        submitBtn.textContent = '✅ Salvar Alterações';
+                        submitBtn.onclick = updateRecord;
+                    }
+                    addLog(`Estado de edição restaurado para registro ${editingIndex + 1}`);
+                }
             }
         }
         
@@ -1931,6 +1982,9 @@ Relatório gerado em: ${report.timestamp}
             // Campo de transporte
             const transporteBtn = document.querySelector('.transport-btn.selected');
             const transporte = transporteBtn ? transporteBtn.dataset.value : '';
+            const observacao = document.getElementById('observacao').value.trim();
+            const qtdAcompanhantes = document.getElementById('qtdAcompanhantes').value || '0';
+            const temAcompanhante = qtdAcompanhantes !== '0';
             
             // Não preencher código automaticamente
             let codigoFinal = procedimento;
@@ -1991,11 +2045,11 @@ Relatório gerado em: ${report.timestamp}
                     return;
                 }
             }
-
             if (!telefone.trim()) {
                 alert('Por favor, preencha o telefone');
                 return;
             }
+
             if (!serviceDate) {
                 alert('Por favor, preencha a data do atendimento');
                 return;
@@ -2006,6 +2060,19 @@ Relatório gerado em: ${report.timestamp}
             }
             if (!cidade) {
                 alert('Por favor, preencha a cidade');
+                return;
+            }
+            if (!horario.trim()) {
+                alert('Por favor, preencha o horário');
+                return;
+            }
+            if (!transporte) {
+                alert('Por favor, selecione uma opção de transporte');
+                return;
+            }
+            // Validar confirmação de acompanhantes
+            if (qtdAcompanhantes > 0 && !document.getElementById('confirmaQtd').checked) {
+                alert('Por favor, confirme a quantidade de acompanhantes');
                 return;
             }
 
@@ -2054,6 +2121,9 @@ Relatório gerado em: ${report.timestamp}
                 cid: cid,
                 tipoAtendimento: tipoAtendimento,
                 transporte: transporte,
+                temAcompanhante: temAcompanhante,
+                qtdAcompanhantes: qtdAcompanhantes,
+                observacao: observacao,
                 caraAtendimento: '01',
                 origem: '1',
                 status: 'pending',
@@ -2080,6 +2150,8 @@ Relatório gerado em: ${report.timestamp}
             document.getElementById('quantity').parentElement.style.display = 'block';
             document.getElementById('class').parentElement.style.display = 'block';
             document.getElementById('cid').parentElement.style.display = 'block';
+            // Resetar validação de acompanhantes
+            validarAcompanhantes();
         }
 
         function downloadFile(filename, content) {
@@ -2098,13 +2170,21 @@ Relatório gerado em: ${report.timestamp}
             if (confirm('Tem certeza que deseja limpar todos os dados?')) {
                 bpaData = [];
                 validationLog = [];
+                editingIndex = -1;
                 localStorage.removeItem('bpa_data');
                 localStorage.removeItem('bpa_logs');
+                localStorage.removeItem('editing_index');
                 updateStatistics();
                 displayData();
                 document.getElementById('fileInput').value = '';
                 document.getElementById('fileInfo').classList.add('hidden');
                 document.getElementById('logArea').value = '';
+                // Resetar botão
+                const submitBtn = document.querySelector('button');
+                if (submitBtn) {
+                    submitBtn.textContent = '✅ Registrar Atendimento';
+                    submitBtn.onclick = addManualRecord;
+                }
                 addLog('Dados limpos');
             }
         }
@@ -2130,6 +2210,42 @@ Relatório gerado em: ${report.timestamp}
             // Adiciona seleção ao botão clicado
             button.classList.add('selected');
         }
+        
+        function validarAcompanhantes() {
+            const qtd = document.getElementById('qtdAcompanhantes').value;
+            const selectElement = document.getElementById('qtdAcompanhantes');
+            const confirmaDiv = document.getElementById('confirmaAcompanhantes');
+            const confirmaCheckbox = document.getElementById('confirmaQtd');
+            const textoConfirmacao = document.getElementById('textoConfirmacao');
+            
+            if (qtd > 0) {
+                // Destaque visual no select
+                selectElement.style.backgroundColor = '#e8f4fd';
+                selectElement.style.border = '2px solid #0066cc';
+                
+                // Mostrar campo de confirmação
+                confirmaDiv.style.display = 'block';
+                
+                // Atualizar texto da confirmação
+                const texto = qtd === '1' ? 
+                    'Confirmo que é exatamente 1 acompanhante' : 
+                    `Confirmo que são exatamente ${qtd} acompanhantes`;
+                textoConfirmacao.textContent = texto;
+                
+                // Desmarcar checkbox para forçar nova confirmação
+                confirmaCheckbox.checked = false;
+            } else {
+                // Remover destaque visual
+                selectElement.style.backgroundColor = '';
+                selectElement.style.border = '';
+                
+                // Ocultar campo de confirmação
+                confirmaDiv.style.display = 'none';
+                confirmaCheckbox.checked = false;
+            }
+        }
+        
+
         
         // Variável para controle de edição
         let editingIndex = -1;
@@ -2168,6 +2284,12 @@ Relatório gerado em: ${report.timestamp}
             document.getElementById('class').value = record.class || '';
             document.getElementById('cid').value = record.cid || '';
             document.getElementById('tipoAtendimento').value = record.tipoAtendimento || '';
+            document.getElementById('observacao').value = record.observacao || '';
+            document.getElementById('qtdAcompanhantes').value = record.qtdAcompanhantes || '0';
+            validarAcompanhantes();
+            if (record.qtdAcompanhantes > 0) {
+                document.getElementById('confirmaQtd').checked = true;
+            }
             
             // Selecionar transporte
             if (record.transporte) {
@@ -2196,21 +2318,176 @@ Relatório gerado em: ${report.timestamp}
         function updateRecord() {
             if (editingIndex === -1) return;
             
-            // Remover registro antigo
-            bpaData.splice(editingIndex, 1);
+            // Capturar dados do formulário (mesmo código do addManualRecord)
+            const cnsPacienteRaw = document.getElementById('patientCNS').value.trim();
+            const patientName = document.getElementById('patientName').value.trim();
+            const gender = document.getElementById('gender').value;
+            const birthDate = document.getElementById('birthDate').value;
+            const nacionalidade = document.getElementById('nacionalidade').value;
+            const raca = document.getElementById('raca').value;
+            const etnia = document.getElementById('etnia').value.trim();
+            const codLogradouro = document.getElementById('codLogradouro').value.trim();
+            const endereco = document.getElementById('endereco').value.trim();
+            const numero = document.getElementById('numero').value.trim();
+            const complemento = document.getElementById('complemento').value.trim();
+            const bairro = document.getElementById('bairro').value.trim() || document.getElementById('bairroUrbano').value.trim();
+            const telefone = document.getElementById('telefone').value.trim();
+            const serviceDate = document.getElementById('serviceDate').value;
+            const procedimento = document.getElementById('procedureCode').value.trim();
+            const quantity = document.getElementById('quantity').value || '1';
+            const local = document.getElementById('local').value.trim();
+            const cidade = document.getElementById('cidade').value;
+            const horario = document.getElementById('horario').value;
+            const classField = document.getElementById('class').value.trim();
+            const cid = document.getElementById('cid').value.trim();
+            const tipoAtendimento = document.getElementById('tipoAtendimento').value;
+            const transporteBtn = document.querySelector('.transport-btn.selected');
+            const transporte = transporteBtn ? transporteBtn.dataset.value : '';
+            const qtdAcompanhantes = document.getElementById('qtdAcompanhantes').value || '0';
+            const temAcompanhante = qtdAcompanhantes !== '0';
+            const observacao = document.getElementById('observacao').value.trim();
             
-            // Adicionar registro atualizado
-            addManualRecord();
+            // Validações obrigatórias completas
+            if (!cnsPacienteRaw) {
+                alert('Por favor, preencha o CNS/CPF do paciente');
+                return;
+            }
+            if (!patientName) {
+                alert('Por favor, preencha o nome do paciente');
+                return;
+            }
+            if (!gender) {
+                alert('Por favor, selecione o sexo');
+                return;
+            }
+            if (!birthDate) {
+                alert('Por favor, preencha a data de nascimento');
+                return;
+            }
+            if (!nacionalidade) {
+                alert('Por favor, selecione a nacionalidade');
+                return;
+            }
+            if (!raca) {
+                alert('Por favor, selecione a raça/cor');
+                return;
+            }
+            if (raca === '05' && !etnia.trim()) {
+                alert('Por favor, preencha a etnia (obrigatório para raça Indígena)');
+                return;
+            }
+            if (!codLogradouro) {
+                alert('Por favor, selecione o logradouro');
+                return;
+            }
+            if (codLogradouro === '081') {
+                if (!endereco.trim()) {
+                    alert('Por favor, preencha o endereço');
+                    return;
+                }
+                if (!numero.trim()) {
+                    alert('Por favor, preencha o número');
+                    return;
+                }
+                const bairroUrbano = document.getElementById('bairroUrbano').value.trim();
+                if (!bairroUrbano) {
+                    alert('Por favor, preencha o bairro');
+                    return;
+                }
+            } else if (codLogradouro === '024') {
+                if (!bairro.trim()) {
+                    alert('Por favor, preencha o córrego');
+                    return;
+                }
+            }
+            if (!telefone.trim()) {
+                alert('Por favor, preencha o telefone');
+                return;
+            }
+            if (!serviceDate) {
+                alert('Por favor, preencha a data do atendimento');
+                return;
+            }
+            if (!tipoAtendimento) {
+                alert('Por favor, selecione o tipo de atendimento');
+                return;
+            }
+            if (!cidade) {
+                alert('Por favor, preencha a cidade');
+                return;
+            }
+            if (!horario.trim()) {
+                alert('Por favor, preencha o horário');
+                return;
+            }
+            if (!transporte) {
+                alert('Por favor, selecione uma opção de transporte');
+                return;
+            }
+            
+            if (qtdAcompanhantes > 0 && !document.getElementById('confirmaQtd').checked) {
+                alert('Por favor, confirme a quantidade de acompanhantes');
+                return;
+            }
+            
+            // Validar CNS ou CPF
+            const cnsPacienteClean = cnsPacienteRaw.replace(/\D/g, '');
+            if (!isValidCNSOrCPF(cnsPacienteRaw)) {
+                alert('CNS ou CPF inválido. Verifique o número digitado.');
+                return;
+            }
+            
+            // Converter datas
+            const dtNascimento = birthDate.split('-').reverse().join('');
+            const dtAtendimento = serviceDate.split('-').reverse().join('');
+            
+            // Atualizar registro existente
+            bpaData[editingIndex] = {
+                ...bpaData[editingIndex],
+                patientId: patientName,
+                procedureId: procedimento,
+                cnsPaciente: cnsPacienteClean.length === 11 ? cnsPacienteClean.padStart(15, '0') : cnsPacienteClean,
+                dtNascimento: dtNascimento,
+                sexo: gender,
+                nacionalidade: nacionalidade || '010',
+                raca: raca || '99',
+                etnia: etnia,
+                codLogradouro: codLogradouro,
+                endereco: endereco,
+                numero: numero,
+                complemento: complemento,
+                bairro: bairro,
+                telefone: telefone.replace(/\D/g, ''),
+                dtAtendimento: dtAtendimento,
+                procedimento: procedimento,
+                quantidade: quantity.padStart(2, '0'),
+                local: local,
+                cidade: cidade,
+                horario: horario,
+                class: classField,
+                cid: cid,
+                tipoAtendimento: tipoAtendimento,
+                transporte: transporte,
+                temAcompanhante: temAcompanhante,
+                qtdAcompanhantes: qtdAcompanhantes,
+                observacao: observacao
+            };
             
             // Resetar edição
             editingIndex = -1;
+            localStorage.setItem('editing_index', '-1');
+            
             const submitBtn = document.querySelector('button[onclick="updateRecord()"]');
             if (submitBtn) {
                 submitBtn.textContent = '✅ Registrar Atendimento';
                 submitBtn.onclick = addManualRecord;
             }
             
-            addLog('Registro atualizado com sucesso');
+            saveDataToStorage();
+            updateStatistics();
+            displayData();
+            clearForm();
+            addLog(`Registro atualizado: ${patientName}`);
         }
         
         function deleteRecord(index) {
