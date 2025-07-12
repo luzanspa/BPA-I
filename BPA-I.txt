@@ -1996,19 +1996,6 @@ Relatório gerado em: ${report.timestamp}
 
         function createBackup(action) {
             const timestamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g, '');
-            
-            // Exportar backup CSV automaticamente
-            if (bpaData.length > 0) {
-                const validData = bpaData.filter(r => r.status === 'valid' || r.status === 'imported' || r.status === 'pending');
-                if (validData.length > 0) {
-                    const csvContent = generateCompleteCSV(validData);
-                    const filename = `BPA-I_Backup_${action}_${timestamp}.csv`;
-                    downloadFile(filename, csvContent);
-                    addLog(`Backup CSV exportado automaticamente: ${filename} (${validData.length} registros)`);
-                }
-            }
-            
-            // Manter backup JSON no localStorage
             const backupData = {
                 timestamp: new Date().toLocaleString('pt-BR'),
                 action: action,
@@ -2017,6 +2004,9 @@ Relatório gerado em: ${report.timestamp}
             };
             
             const backupContent = JSON.stringify(backupData, null, 2);
+            const filename = `BPA-I_Backup_${action}_${timestamp}.json`;
+            
+            // Salvar backup no localStorage também
             const backupKey = `bpa_backup_${timestamp}`;
             localStorage.setItem(backupKey, backupContent);
             
@@ -2028,6 +2018,8 @@ Relatório gerado em: ${report.timestamp}
                     localStorage.removeItem(allKeys[i]);
                 }
             }
+            
+            addLog(`Backup automático criado: ${filename}`);
         }
         
         function addManualRecord() {
@@ -2235,14 +2227,14 @@ Relatório gerado em: ${report.timestamp}
                 errors: []
             };
 
+            // Criar backup antes de adicionar
+            createBackup('NOVO_CADASTRO');
+            
             bpaData.push(record);
             saveDataToStorage();
             updateStatistics();
             displayData();
             addLog(`Registro adicionado: ${patientName} - Procedimento: ${procedimento}`);
-            
-            // Criar backup após adicionar
-            createBackup('NOVO_CADASTRO');
             
             clearForm();
         }
@@ -2642,6 +2634,9 @@ Relatório gerado em: ${report.timestamp}
                 observacao: observacao
             };
             
+            // Criar backup antes de salvar alterações
+            createBackup('EDICAO_SALVA');
+            
             // Resetar edição
             editingIndex = -1;
             localStorage.setItem('editing_index', '-1');
@@ -2654,22 +2649,19 @@ Relatório gerado em: ${report.timestamp}
             displayData();
             clearForm();
             addLog(`Registro atualizado: ${patientName}`);
-            
-            // Criar backup após salvar alterações
-            createBackup('EDICAO_SALVA');
         }
         
         function deleteRecord(index) {
             const record = bpaData[index];
             if (confirm(`Tem certeza que deseja excluir o registro de ${record.patientId}?`)) {
+                // Criar backup antes de excluir
+                createBackup('EXCLUSAO');
+                
                 bpaData.splice(index, 1);
                 saveDataToStorage();
                 updateStatistics();
                 displayData();
                 addLog(`Registro excluído: ${record.patientId}`);
-                
-                // Criar backup após excluir
-                createBackup('EXCLUSAO');
             }
         }
         
@@ -2864,15 +2856,15 @@ Relatório gerado em: ${report.timestamp}
                         }
                     }
                     
+                    // Criar backup antes de importar
+                    if (importedCount > 0) {
+                        createBackup('IMPORTACAO');
+                    }
+                    
                     // Salvar e atualizar
                     saveDataToStorage();
                     updateStatistics();
                     displayData();
-                    
-                    // Criar backup após importar
-                    if (importedCount > 0) {
-                        createBackup('IMPORTACAO');
-                    }
                     
                     const totalAfter = bpaData.length;
                     
