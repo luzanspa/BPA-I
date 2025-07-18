@@ -1077,7 +1077,7 @@
                                 <input type="text" id="complemento" placeholder="Apto, bloco, etc." maxlength="30">
                             </div>
                             <div class="form-group">
-                                <label for="telefone">Telefone:</label>
+                                <label for="telefone">Teletelefone:</label>
                                 <input type="text" id="telefone" placeholder="(00) 00000-0000" maxlength="15">
                             </div>
                         </div>
@@ -3691,8 +3691,8 @@
                     if (filterEndDateYYYYMMDD && recordDateYYYYMMDD > filterEndDateYYYYMMDD) {
                         return false;
                     }
-                }
-                );
+                    return true; // Adicionado: Retorna true se o registro for válido e dentro do período
+                });
                 
                 const reportTitle = '📄 Relatório BPA-I Completo';
                 generateReportContent(filteredData, reportTitle, startDateInput, endDateInput);
